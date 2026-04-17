@@ -1,6 +1,7 @@
 def read_file(data):
     file_path = data["file_path"]
-    lines = open(file_path, "r").readlines()
+    with open(file_path, "r") as f:
+        lines = f.readlines()
     r_data = {
         "role": "assistant",
         "content": f"File - {file_path} contains: {lines}",
