@@ -1,104 +1,159 @@
-# 🧠 Local AI Code Agent
+# 🧠 mini_agent
 
-A simple local AI-powered coding agent built on top of a local LLM (via llama.cpp-compatible API).
+A local AI-powered coding agent built on top of a local LLM through a llama.cpp-compatible API.
 
-The agent can:
-
-* read files
-* write files
-* maintain conversation state
-* execute actions based on structured JSON output from the model
+Unlike a simple chat wrapper, this project is built around a **planner → executor → tools** workflow.  
+The goal is to explore how a local model can break a user task into steps, execute them through tools, and keep context during a session.
 
 ---
 
-## 🚀 Features
+## ✨ What this project does
 
-* 🔁 Interactive agent loop (CLI)
-* 🧠 LLM-driven decision making
-* 🛠 Tool system (extensible)
-* 📂 File system interaction:
+`mini_agent` can currently:
 
-  * read files
-  * write files
-* 💬 Persistent message context
-* 📦 Modular architecture (agent / llm / tools)
+- generate a structured plan from a user request
+- execute tasks step-by-step in one session
+- read files
+- write files
+- maintain conversation context
+- route model output into real tool execution through JSON actions
+
+This makes it closer to a minimal local coding agent than a plain terminal chatbot.
 
 ---
 
-## ⚙️ Architecture Overview
+## 🏗 Architecture
 
-The system is split into logical components:
+The current flow looks like this:
 
-```
+```text
 User Input
    ↓
-Agent Loop
+Planner
    ↓
-LLM (chat completion)
+Execution Plan (JSON)
    ↓
-JSON Action
+Executor
    ↓
-Handler (dispatch)
+Action JSON
    ↓
-Tools (execution)
+Handler
+   ↓
+Tools
    ↓
 Result → back to context
 ```
 
-### Components
+### `agent/`
+Core orchestration logic.
 
-#### `agent/`
+- `loop.py` — main runtime loop
+- `state.py` — system/user message setup
+- `handler.py` — action dispatch
+- `planning.py` — plan generation
+- `prompts/` — planner and executor prompts
 
-* `loop.py` — main execution loop
-* `state.py` — initial system prompt & message state
-* `handler.py` — routes actions to tools
+### `llm/`
+Model communication layer.
 
-#### `llm/`
+- `llm_client.py` — sends requests to the local model server
+- `payload_builder.py` — builds payloads for API requests
 
-* `llm_client.py` — API communication with local model
-* `payload_builder.py` — builds request payload
+### `tools/`
+Execution layer.
 
-#### `tools/`
+- `read_file.py`
+- `write_file.py`
+- `say.py`
+- `registry.py`
 
-* `read_file.py`
-* `write_file.py`
-* `say.py`
-* `registry.py` — tool mapping
-
-#### `config.py`
-
-* model name
-* API URL
-* temperature
+### Root
+- `main.py` — entry point
+- `config.py` — configuration
+- `.env.example` — environment template
 
 ---
 
-## 🧩 How It Works
+## 🧩 How it works
 
-The model is instructed to output strict JSON:
+### 1. Planner
+The planner receives the user request and converts it into a step-by-step plan.
+
+Example:
+
+```json
+{
+  "goal": "Create a simple landing page in index.html",
+  "plan": [
+    {
+      "step": 1,
+      "action": "write_file",
+      "description": "Create index.html with a basic HTML structure"
+    },
+    {
+      "step": 2,
+      "action": "write_file",
+      "description": "Add main landing page sections like header, hero block, and footer"
+    }
+  ]
+}
+```
+
+### 2. Executor
+The executor receives one step at a time and converts it into an executable JSON action.
+
+Example:
 
 ```json
 {
   "action": "write_file",
-  "file_path": "index.html",
-  "content": "<html>...</html>"
+  "file_path": "./index.html",
+  "content": "<!DOCTYPE html>..."
 }
 ```
 
-The agent:
+### 3. Handler + Tools
+The handler routes the action to the correct tool, and the result is pushed back into the ongoing context.
 
-1. Sends user input to the model
-2. Receives JSON response
-3. Parses it
-4. Executes the corresponding tool
-5. Feeds the result back into the conversation
+---
+
+## 🛠 Available actions
+
+| Action | Description |
+|---|---|
+| `say` | Return text output |
+| `write_file` | Write content to a file |
+| `read_file` | Read file content |
+
+---
+
+## 🚀 Why this repo is interesting
+
+This repository is not just “LLM calls a tool.”
+
+It already demonstrates several ideas used in real agent systems:
+
+- planner / executor separation
+- structured JSON contracts between modules
+- tool dispatching through a registry
+- multi-step execution in one session
+- context feedback loop after tool execution
+- local inference instead of external SaaS APIs
+
+That makes it a good experimental base for:
+- local coding agents
+- tool-using assistants
+- multi-agent workflows
+- Jinja / native tool-calling migration
+- observability and logging experiments
 
 ---
 
 ## 📦 Requirements
 
-* Python 3.10+
-* Running local LLM server (llama.cpp or compatible)
+- Python 3.10+
+- a running local llama.cpp-compatible server
+- a model that can reliably follow structured JSON output
 
 Example:
 
@@ -114,18 +169,19 @@ Example:
 python main.py
 ```
 
-Then interact:
+Example prompts:
 
-```
->>> Create a file index.html
+```text
+>>> Create a simple HTML landing page in index.html
 >>> Read file index.html
+>>> Create style.css and move styles there
 ```
 
 ---
 
 ## 🔧 Configuration
 
-Edit `config.py`:
+Example `config.py`:
 
 ```python
 API_URL = "http://127.0.0.1:8080"
@@ -135,64 +191,65 @@ TEMP = 0.3
 
 ---
 
-## 🛠 Available Tools
+## ⚠️ Current limitations
 
-| Tool         | Description        |
-| ------------ | ------------------ |
-| `say`        | Prints text        |
-| `write_file` | Writes a file      |
-| `read_file`  | Reads file content |
-
----
-
-## ⚠️ Known Issues
-
-* Model may sometimes return invalid JSON
-* Unicode issues may occur with long outputs
-* No retry mechanism (yet)
-* No sandboxing for file operations
+- quantized models may still occasionally break JSON formatting
+- long outputs may trigger Unicode / encoding issues
+- file operations are not sandboxed yet
+- retry / recovery is still minimal
+- tool calling is still JSON-driven, not native Jinja tool calling
 
 ---
 
-## 🔮 Future Improvements
+## 🗺 Roadmap
 
-* [ ] Tool calling via Jinja templates
-* [ ] Multi-step reasoning loop
-* [ ] Planner → Executor architecture
-* [ ] File context awareness
-* [ ] Retry / error recovery system
-* [ ] JSON schema validation
-* [ ] Multi-agent support
+- [x] Basic local agent loop
+- [x] Tool system
+- [x] Planner → executor split
+- [x] Multi-step execution in one session
+- [ ] Better logging / observability
+- [ ] Native Jinja-based tool calling
+- [ ] Safer retry / recovery flow
+- [ ] File-aware context management
+- [ ] Output validation layer
+- [ ] Multi-agent orchestration
 
 ---
 
 ## 📚 Motivation
 
-This project is an experiment in building a minimal local AI agent system:
+The main goal of this repository is to understand agent systems from the inside by building one manually.
 
-* without external frameworks
-* with full control over logic
-* focused on understanding LLM orchestration
+Instead of hiding everything behind a heavy framework, this project explores:
+- how local models behave in agent loops
+- how planning and execution can be separated
+- how tools can be integrated with minimal infrastructure
+- how to keep the system understandable while it grows
 
 ---
 
 ## 🧪 Status
 
-**MVP — functional but evolving**
+**Early MVP, but functional.**
+
+The project already supports:
+- planning
+- execution
+- file tool usage
+- contextual multi-step behavior
 
 ---
 
-## 💡 Notes
+## 📄 License
 
-This is not production-ready.
-The goal is learning and experimentation.
+MIT
 
 ---
 
 ## 🧑‍💻 Author
 
-Built as part of exploration into:
-
-* LLM agents
-* local inference
-* tool-based execution systems
+Built by [s1xc37](https://github.com/s1xc37) as part of hands-on exploration into:
+- LLM agents
+- local inference
+- tool-based execution systems
+- planner / executor architectures
