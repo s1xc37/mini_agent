@@ -1,8 +1,7 @@
-# 🧠 mini_agent
+# 🧠 Mini_agent
 
 A local AI-powered coding agent built on top of a local LLM through a llama.cpp-compatible API.
 
-Unlike a simple chat wrapper, this project is built around a **planner → executor → tools** workflow.  
 The goal is to explore how a local model can break a user task into steps, execute them through tools, and keep context during a session.
 
 ---
@@ -45,7 +44,7 @@ Result → back to context
 ```
 
 ### `agent/`
-Core orchestration logic.
+Core logic.
 
 - `loop.py` — main runtime loop
 - `state.py` — system/user message setup
@@ -124,28 +123,6 @@ The handler routes the action to the correct tool, and the result is pushed back
 | `say` | Return text output |
 | `write_file` | Write content to a file |
 | `read_file` | Read file content |
-
----
-
-## 🚀 Why this repo is interesting
-
-This repository is not just “LLM calls a tool.”
-
-It already demonstrates several ideas used in real agent systems:
-
-- planner / executor separation
-- structured JSON contracts between modules
-- tool dispatching through a registry
-- multi-step execution in one session
-- context feedback loop after tool execution
-- local inference instead of external SaaS APIs
-
-That makes it a good experimental base for:
-- local coding agents
-- tool-using assistants
-- multi-agent workflows
-- Jinja / native tool-calling migration
-- observability and logging experiments
 
 ---
 
